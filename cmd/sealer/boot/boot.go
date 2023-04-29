@@ -21,6 +21,9 @@ import (
 	"github.com/sealerio/sealer/common"
 )
 
+/* 
+	字符串类型切片,包含了程序需要用到的根目录
+*/
 var rootDirs = []string{
 	common.DefaultLogDir,
 	common.DefaultTmpDir,
@@ -28,6 +31,9 @@ var rootDirs = []string{
 	common.DefaultImageMetaRootDir,
 	common.DefaultLayerDir}
 
+/*
+	在程序启动时初始化根目录
+*/
 func initRootDirectory() error {
 	for _, dir := range rootDirs {
 		err := os.MkdirAll(dir, common.FileMode0755)
@@ -38,6 +44,9 @@ func initRootDirectory() error {
 	return nil
 }
 
+/*
+	返回结果
+*/
 func OnBoot() error {
 	return initRootDirectory()
 }

@@ -24,6 +24,7 @@ import (
 // InitReexec is a wrapper for reexec.Init().  It should be called at
 // the start of main(), and if it returns true, main() should return
 // immediately.
+// 检测当前进程是否是一个重新执行的子进程
 func InitReexec() bool {
 	return reexec.Init()
 }

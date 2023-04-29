@@ -22,12 +22,21 @@ import (
 )
 
 func main() {
+	/*
+		检测当前进程是否是一个重新执行的子进程
+	*/
 	if buildah.InitReexec() {
+		// 如果是重新执行的子进程，立刻返回
 		return
 	}
-
+	/*
+		执行初始化操作
+	*/
 	if err := boot.OnBoot(); err != nil {
 		panic(err)
 	}
+	/*
+		如果一切正常,开始执行程序的主要逻辑
+	*/
 	cmd.Execute()
 }

@@ -914,6 +914,9 @@ func (c *Command) ExecuteContext(ctx context.Context) error {
 // Execute uses the args (os.Args[1:] by default)
 // and run through the command tree finding appropriate matches
 // for commands and then corresponding flags.
+/*
+	调用 ExecuteC() 并 返回可能的错误
+*/
 func (c *Command) Execute() error {
 	_, err := c.ExecuteC()
 	return err
@@ -928,12 +931,28 @@ func (c *Command) ExecuteContextC(ctx context.Context) (*Command, error) {
 }
 
 // ExecuteC executes the command.
+/*
+	Step:
+		1. 检测上下文是否需要新建
+
+*/
 func (c *Command) ExecuteC() (cmd *Command, err error) {
+	// 如果 Command 的上下文为空,则新建一个 后台上下文
 	if c.ctx == nil {
+		// c.ctx = int
+		// backgroud 是一个指向 emptyCtx 类型的指针
+			// 表示一个空的,无截止日期的上下文
+			// 是所有新上下文的默认父级上下文
 		c.ctx = context.Background()
 	}
 
 	// Regardless of what command execute is called on, run on Root only
+	/*
+		如果该命令没有父级命令(预期目标),则开始执行根命令的 ExecuteC 方法
+		如果有父命令,执行父命令的 Root() 方法,确保:	
+			无论在哪个子命令上执行 Execute 方法都会执行根命令的 ExecuteC 方法
+			Run on Root only
+	*/
 	if c.HasParent() {
 		return c.Root().ExecuteC()
 	}
@@ -943,6 +962,10 @@ func (c *Command) ExecuteC() (cmd *Command, err error) {
 		preExecHookFn(c)
 	}
 
+	/*
+		last point 意味着初始化命令的最后一步
+			最后一步是为了帮助命令设置一个默认的实现
+	*/
 	// initialize help at the last point to allow for user overriding
 	c.InitDefaultHelpCmd()
 	// initialize completion at the last point to allow for user overriding

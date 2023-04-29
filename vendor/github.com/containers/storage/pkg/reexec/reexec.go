@@ -26,6 +26,7 @@ func Register(name string, initializer func()) {
 func Init() bool {
 	initializer, exists := registeredInitializers[os.Args[0]]
 	initWasCalled = true
+	// 如果找到了初始化器,什么是重复调用,返回 true:表明程序已经被初始化过
 	if exists {
 		initializer()
 
