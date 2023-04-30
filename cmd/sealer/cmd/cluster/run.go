@@ -67,13 +67,13 @@ func NewRunCmd() *cobra.Command {
 			// set local ip address as master0 default ip if user input is empty.
 			// this is convenient to execute `sealer run` without set many arguments.
 			// Example looks like "sealer run docker.io/sealerio/kubernetes:v1.22.15"
-			//if runFlags.Masters == "" {
-			//	ip, err := net.GetLocalDefaultIP()
-			//	if err != nil {
-			//		return err
-			//	}
-			//	runFlags.Masters = ip
-			//}
+			// if runFlags.Masters == "" {
+			// 	ip, err := net.GetLocalDefaultIP()
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// 	runFlags.Masters = ip
+			// }
 			var (
 				err         error
 				clusterFile = runFlags.ClusterFile
