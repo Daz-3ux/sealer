@@ -783,6 +783,7 @@ func (c *Command) execute(a []string) (err error) {
 		return fmt.Errorf("Called Execute() on a nil Command")
 	}
 
+	// 命令已废除
 	if len(c.Deprecated) > 0 {
 		c.Printf("Command %q is deprecated, %s\n", c.Name(), c.Deprecated)
 	}
@@ -792,6 +793,7 @@ func (c *Command) execute(a []string) (err error) {
 	c.InitDefaultHelpFlag()
 	c.InitDefaultVersionFlag()
 
+	// 解析命令的标志
 	err = c.ParseFlags(a)
 	if err != nil {
 		return c.FlagErrorFunc()(c, err)
@@ -831,6 +833,7 @@ func (c *Command) execute(a []string) (err error) {
 		return flag.ErrHelp
 	}
 
+	// 命令运行前的预处理操作
 	c.preRun()
 
 	argWoFlags := c.Flags().Args()
@@ -873,6 +876,7 @@ func (c *Command) execute(a []string) (err error) {
 			return err
 		}
 	} else {
+		// 执行命令的主逻辑
 		c.Run(c, argWoFlags)
 	}
 	if c.PostRunE != nil {
@@ -948,10 +952,16 @@ func (c *Command) ExecuteC() (cmd *Command, err error) {
 
 	// Regardless of what command execute is called on, run on Root only
 	/*
-		如果该命令没有父级命令(预期目标),则开始执行根命令的 ExecuteC 方法
+		如果该命令没有父级命令(达到了预期目标),则开始执行根命令的 ExecuteC 方法
 		如果有父命令,执行父命令的 Root() 方法,确保:	
 			无论在哪个子命令上执行 Execute 方法都会执行根命令的 ExecuteC 方法
 			Run on Root only
+		func (c *Command) Root() *Command {
+			if c.HasParent() {
+				return c.Parent().Root()
+			}
+		return c
+}
 	*/
 	if c.HasParent() {
 		return c.Root().ExecuteC()
@@ -971,22 +981,37 @@ func (c *Command) ExecuteC() (cmd *Command, err error) {
 	// initialize completion at the last point to allow for user overriding
 	c.initDefaultCompletionCmd()
 
+	// args []string
 	args := c.args
 
+	/*
+		若 c.args为空 且 当前不是测试
+		则使用 os.args 为 c.args 赋值
+	*/
 	// Workaround FAIL with "go test -v" or "cobra.test -test.v", see #155
 	if c.args == nil && filepath.Base(os.Args[0]) != "cobra.test" {
 		args = os.Args[1:]
 	}
 
+	/*
+		初始化用于 shell 自动补全的隐藏命令
+	*/
 	// initialize the hidden command to be used for shell completion
 	c.initCompleteCmd(args)
 
+	/*
+		遍历子命令
+		返回 Command类型指针 字符串数组 可能的错误
+	*/
 	var flags []string
 	if c.TraverseChildren {
 		cmd, flags, err = c.Traverse(args)
 	} else {
 		cmd, flags, err = c.Find(args)
 	}
+	/*
+		如果出现错误,则打印错误信息并返回
+	*/
 	if err != nil {
 		// If found parse to a subcommand and then failed, talk about the subcommand
 		if cmd != nil {
@@ -999,17 +1024,23 @@ func (c *Command) ExecuteC() (cmd *Command, err error) {
 		return c, err
 	}
 
+	// 设置 commandCalledAs 属性的值
 	cmd.commandCalledAs.called = true
 	if cmd.commandCalledAs.name == "" {
 		cmd.commandCalledAs.name = cmd.Name()
 	}
 
+	// 如果存在父级命令的上下文,则将其传递给子命令
 	// We have to pass global context to children command
 	// if context is present on the parent command.
 	if cmd.ctx == nil {
 		cmd.ctx = c.ctx
 	}
 
+	/*
+		执行命令
+		如果出现错误,则根据情况 显示帮助 \ 打印错误信息 \ 显示使用信息
+	*/
 	err = cmd.execute(flags)
 	if err != nil {
 		// Always show help if requested, even if SilenceErrors is in
@@ -1031,6 +1062,8 @@ func (c *Command) ExecuteC() (cmd *Command, err error) {
 			c.Println(cmd.UsageString())
 		}
 	}
+
+	// last: 返回 cmd 以及 err
 	return cmd, err
 }
 
