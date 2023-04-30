@@ -79,23 +79,28 @@ func NewRunCmd() *cobra.Command {
 				clusterFile = runFlags.ClusterFile
 			)
 
+			// 既没有 镜像名称 也没有 ClusterFile 就返回错误
 			if len(args) == 0 && clusterFile == "" {
 				return fmt.Errorf("you must input image name Or use Clusterfile")
 			}
 
+			// 验证 IP 地址是否合法
 			if err = utils.ValidateRunHosts(runFlags.Masters, runFlags.Nodes); err != nil {
 				return fmt.Errorf("failed to validate input run master or node: %v", err)
 			}
 
+			// 如果使用了 clusterFile,就按照配置文件启动集群
 			if clusterFile != "" {
 				return runWithClusterfile(clusterFile, runFlags)
 			}
 
+			// 新建一个 ImageEngine 对象,用于管理 Docker 镜像
 			imageEngine, err := imageengine.NewImageEngine(options.EngineGlobalConfigurations{})
 			if err != nil {
 				return err
 			}
 
+			// 拉取镜像
 			id, err := imageEngine.Pull(&options.PullOptions{
 				Quiet:      false,
 				PullPolicy: "missing",
@@ -106,14 +111,17 @@ func NewRunCmd() *cobra.Command {
 				return err
 			}
 
+			// 检查拉取的镜像
+			// 返回镜像的规范描述
 			imageSpec, err := imageEngine.Inspect(&options.InspectOptions{ImageNameOrID: id})
 			if err != nil {
 				return fmt.Errorf("failed to get sealer image extension: %s", err)
 			}
 
+			// 如果镜像是一个应用安装程序,则构建一个应用程序对象
 			if imageSpec.ImageExtension.Type == imagev1.AppInstaller {
 				app := utils.ConstructApplication(nil, runFlags.Cmds, runFlags.AppNames)
-
+				// 调用 runApplicationImage 运行该应用程序镜像
 				return runApplicationImage(&RunApplicationImageRequest{
 					ImageName:   args[0],
 					Application: app,
@@ -126,21 +134,25 @@ func NewRunCmd() *cobra.Command {
 				})
 			}
 
+			// 根据一个 Cluster 对象
 			clusterFromFlag, err := utils.ConstructClusterForRun(args[0], runFlags)
 			if err != nil {
 				return err
 			}
 
+			// 将 Cluster 对象转换为 YAML 格式的字节数组
 			clusterData, err := yaml.Marshal(clusterFromFlag)
 			if err != nil {
 				return err
 			}
 
+			// 创建一个 ClusterFile 对象,用于管理应用程序集群
 			cf, err := clusterfile.NewClusterFile(clusterData)
 			if err != nil {
 				return err
 			}
 
+			// 调用 runClusterImage 运行应用程序镜像
 			return runClusterImage(imageEngine, cf, imageSpec, runFlags.Mode, runFlags.IgnoreCache)
 		},
 	}
