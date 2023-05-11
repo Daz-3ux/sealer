@@ -28,6 +28,7 @@ type Interface interface {
 	Apply() error
 }
 
+
 func NewDefaultProvider(cluster *v1.Cluster) (Interface, error) {
 	switch cluster.Spec.Provider {
 	case aliyun.AliCloud:

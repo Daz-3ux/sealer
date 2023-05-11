@@ -22,6 +22,7 @@ import (
 	"github.com/docker/docker/api/types/mount"
 )
 
+// 定义容器的默认挂载点
 func DefaultMounts() []mount.Mount {
 	mounts := []mount.Mount{
 		{
@@ -60,6 +61,7 @@ func DefaultMounts() []mount.Mount {
 	return mounts
 }
 
+// 生成一个 IPv6 子网: 保证每个容器 IP 地址唯一
 func GenerateSubnetFromName(name string, attempt int32) string {
 	ip := make([]byte, 16)
 	ip[0] = 0xfc

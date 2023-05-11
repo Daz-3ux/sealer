@@ -58,18 +58,22 @@ type ApplyResult struct {
 	Role           string
 }
 
+// 管理 K8s 集群: 创建,删除,扩容/缩容
 func (a *ApplyProvider) Apply() error {
 	// delete apply
+	// 检查集群是否被标记为删除
 	if a.Cluster.DeletionTimestamp != nil {
 		logrus.Info("deletion timestamp not nil, will clear infra")
 		return a.CleanUp()
 	}
 	// new apply
+	// 检查集群注释详细
 	if a.Cluster.Annotations == nil {
 		err := a.CheckServerInfo()
 		if err != nil {
 			return err
 		}
+		// 创建一个 map[string][string]类型的注释类型
 		a.Cluster.Annotations = make(map[string]string)
 	}
 	// change apply: scale up or scale down,count!=len(iplist)
@@ -80,6 +84,7 @@ func (a *ApplyProvider) Apply() error {
 	return nil
 }
 
+// 检查 docker 服务器信息
 func (a *ApplyProvider) CheckServerInfo() error {
 	/*
 		1,rootless docker:do not support rootless docker currently.if support, CgroupVersion must = 2
@@ -117,6 +122,7 @@ func (a *ApplyProvider) CheckServerInfo() error {
 	return nil
 }
 
+// 调整容器的数量和 IP 地址列表
 func (a *ApplyProvider) ReconcileContainer() error {
 	// scale up: apply diff container, append ip list.
 	// scale down: delete diff container by id,delete ip list. if no container,need do cleanup
@@ -152,6 +158,7 @@ func (a *ApplyProvider) ReconcileContainer() error {
 	return nil
 }
 
+// 应用结构体中记录的变化,添加或删除容器的 IP 地址列表,使其与指定规格匹配
 func (a *ApplyProvider) applyResult(result *ApplyResult) error {
 	// create or delete an update iplist
 	switch result.Role {
@@ -193,6 +200,7 @@ func (a *ApplyProvider) applyResult(result *ApplyResult) error {
 	return nil
 }
 
+// 新增容器并添加 IP 地址
 func (a *ApplyProvider) applyToJoin(toJoinNumber int, role string) ([]net.IP, error) {
 	// run container and return append ip list
 	var toJoinIPList []net.IP
@@ -232,11 +240,14 @@ func (a *ApplyProvider) applyToJoin(toJoinNumber int, role string) ([]net.IP, er
 	return toJoinIPList, nil
 }
 
+// 修改容器默认密码
 func (a *ApplyProvider) changeDefaultPasswd(containerIP net.IP) error {
+	// 如果没有设置密码则直接返回
 	if a.Cluster.Spec.SSH.Passwd == "" {
 		return nil
 	}
 
+	// 如果密码与默认密码相同则直接返回
 	if a.Cluster.Spec.SSH.Passwd == DefaultPassword {
 		return nil
 	}
@@ -250,11 +261,13 @@ func (a *ApplyProvider) changeDefaultPasswd(containerIP net.IP) error {
 		Password: DefaultPassword,
 	}
 
+	// 更新密码
 	cmd := fmt.Sprintf(ChangePasswordCmd, a.Cluster.Spec.SSH.Passwd)
 	_, err := sshClient.Cmd(containerIP, nil, cmd)
 	return err
 }
 
+// 删除容器以及其 IP 地址
 func (a *ApplyProvider) applyToDelete(deleteIPList []net.IP) error {
 	// delete container and return deleted ip list
 	for _, ip := range deleteIPList {
@@ -272,6 +285,7 @@ func (a *ApplyProvider) applyToDelete(deleteIPList []net.IP) error {
 	return nil
 }
 
+// 清楚容器 镜像 网络资源
 func (a *ApplyProvider) CleanUp() error {
 	//clean up container,cleanup image,clean up network
 	var iplist []net.IP
@@ -294,6 +308,7 @@ func (a *ApplyProvider) CleanUp() error {
 	return nil
 }
 
+// 
 func NewClientWithCluster(cluster *v1.Cluster) (*ApplyProvider, error) {
 	p, err := docker.NewDockerProvider()
 	if err != nil {

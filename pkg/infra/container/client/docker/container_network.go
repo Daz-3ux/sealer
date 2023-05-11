@@ -21,10 +21,12 @@ import (
 	"github.com/docker/docker/api/types/network"
 )
 
+// 删除指定网络资源
 func (p *Provider) DeleteNetworkResource(id string) error {
 	return p.DockerClient.NetworkRemove(p.Ctx, id)
 }
 
+// 准备一个网络资源: 创建/重用 
 func (p *Provider) PrepareNetworkResource(networkName string) (string, error) {
 	networks, err := p.DockerClient.NetworkList(p.Ctx, types.NetworkListOptions{})
 	if err != nil {
@@ -92,6 +94,7 @@ func (p *Provider) PrepareNetworkResource(networkName string) (string, error) {
 	return resp.ID, nil
 }
 
+// 由容器 ID 获取容器资源详情
 func (p *Provider) GetNetworkResourceByID(id string) (*types.NetworkResource, error) {
 	net, err := p.DockerClient.NetworkInspect(p.Ctx, id, types.NetworkInspectOptions{})
 	if err != nil {

@@ -25,6 +25,7 @@ import (
 	"github.com/sealerio/sealer/utils/exec"
 )
 
+// 检查主机 docker 是否可用
 func IsDockerAvailable() bool {
 	lines, err := exec.RunSimpleCmd("docker -v")
 	if err != nil || len(lines) != 1 {
@@ -33,6 +34,7 @@ func IsDockerAvailable() bool {
 	return strings.Contains(lines, "docker version")
 }
 
+// 计算主机 IP 列表差异:计算需要添加或删除的 IP 数量
 func getDiff(host v1.Hosts) (int, []net.IP, error) {
 	var num int
 	var iplist []net.IP
@@ -53,6 +55,7 @@ func getDiff(host v1.Hosts) (int, []net.IP, error) {
 	return num, iplist, nil
 }
 
+// 生成随机 ID
 func GenUniqueID(n int) string {
 	randBytes := make([]byte, n/2)
 	if _, err := rand.Read(randBytes); err != nil {

@@ -26,6 +26,7 @@ import (
 	"github.com/sealerio/sealer/common"
 )
 
+// 删除镜像
 func (p *Provider) DeleteImageResource(imageID string) error {
 	_, err := p.DockerClient.ImageRemove(p.Ctx, imageID, types.ImageRemoveOptions{
 		Force:         true,
@@ -34,6 +35,7 @@ func (p *Provider) DeleteImageResource(imageID string) error {
 	return err
 }
 
+// 拉取镜像
 func (p *Provider) PullImage(imageName string) (string, error) {
 	// if existed, only set id no need to pull.
 	if imageID := p.GetImageIDByName(imageName); imageID != "" {
@@ -62,6 +64,7 @@ func (p *Provider) PullImage(imageName string) (string, error) {
 	return "", fmt.Errorf("failed to pull image:%s", imageName)
 }
 
+// 获取镜像ID
 func (p *Provider) GetImageIDByName(name string) string {
 	images, err := p.DockerClient.ImageList(p.Ctx, types.ImageListOptions{})
 	if err != nil {
@@ -78,6 +81,7 @@ func (p *Provider) GetImageIDByName(name string) string {
 	return ""
 }
 
+// 获取指定 ID 的镜像的资源详细信息
 func (p *Provider) GetImageResourceByID(id string) (*types.ImageInspect, error) {
 	image, _, err := p.DockerClient.ImageInspectWithRaw(p.Ctx, id)
 	return &image, err

@@ -27,8 +27,14 @@ type Provider struct {
 	Ctx          context.Context
 }
 
+/* 
+	创建一个新的docker服务者
+	工厂函数:封装了 docker 客户端以及上下文对象
+*/
 func NewDockerProvider() (client.ProviderService, error) {
+	// 创建一个新的上下文对象 ctx
 	ctx := context.Background()
+	// 创建一个新的 docker 客户端 并 存储到 cli
 	cli, err := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
