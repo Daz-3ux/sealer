@@ -18,7 +18,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
+//	"strconv"
 	"path/filepath"
+
+	strings "github.com/sealerio/sealer/utils/strings"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -83,6 +87,10 @@ func NewRunCmd() *cobra.Command {
 				return fmt.Errorf("you must input image name Or use Clusterfile")
 			}
 
+			if runFlags.Provider != "" {
+				return runWithLocal()
+			}
+
 			if err = utils.ValidateRunHosts(runFlags.Masters, runFlags.Nodes); err != nil {
 				return fmt.Errorf("failed to validate input run master or node: %v", err)
 			}
@@ -145,8 +153,7 @@ func NewRunCmd() *cobra.Command {
 		},
 	}
 	runFlags = &types.RunFlags{}
-	//todo remove provider Flag now, maybe we can support it later
-	//runCmd.Flags().StringVarP(&runFlags.Provider, "provider", "", "", "set infra provider, example `ALI_CLOUD`, the local server need ignore this")
+	runCmd.Flags().StringVarP(&runFlags.Provider, "provider", "", "", "set infra provider, example `ALI_CLOUD`, the local server need ignore this")
 	runCmd.Flags().StringVarP(&runFlags.Masters, "masters", "m", "", "set count or IPList to masters")
 	runCmd.Flags().StringVarP(&runFlags.Nodes, "nodes", "n", "", "set count or IPList to nodes")
 	runCmd.Flags().StringVarP(&runFlags.User, "user", "u", "root", "set baremetal server username")
@@ -161,14 +168,34 @@ func NewRunCmd() *cobra.Command {
 	runCmd.Flags().StringVar(&runFlags.Mode, "mode", common.ApplyModeApply, "load images to the specified registry in advance")
 	runCmd.Flags().BoolVar(&runFlags.IgnoreCache, "ignore-cache", false, "whether ignore cache when distribute sealer image, default is false.")
 
-	//err := runCmd.RegisterFlagCompletionFunc("provider", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	//	return strings.ContainPartial([]string{common.BAREMETAL, common.AliCloud, common.CONTAINER}, toComplete), cobra.ShellCompDirectiveNoFileComp
-	//})
-	//if err != nil {
-	//	logrus.Errorf("provide completion for provider flag, err: %v", err)
-	//	os.Exit(1)
-	//}
+	err := runCmd.RegisterFlagCompletionFunc("provider", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return strings.ContainPartial([]string{common.BAREMETAL, common.AliCloud, common.CONTAINER}, toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+	if err != nil {
+		logrus.Errorf("provide completion for provider flag, err: %v", err)
+		os.Exit(1)
+	}
 	return runCmd
+}
+
+func runWithLocal( ) error {
+	fmt.Println(runFlags.Provider);
+	fmt.Println(runFlags.Masters)
+	fmt.Println(runFlags.Nodes)
+
+	arch := runtime.GOARCH
+	var dockerfilePath string
+
+	switch arch {
+	case "amd64":
+		dockerfilePath = "pkg/infra/container/imagecontext/base/Dockerfile"
+	case "arm64":
+		dockerfilePath = "pkg/infra/container/imagecontext/arm/Dockerfile"
+	default:
+		return fmt.Errorf("unsupported architecture: %s", arch)
+	}
+
+	return nil
 }
 
 func runWithClusterfile(clusterFile string, runFlags *types.RunFlags) error {
