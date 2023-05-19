@@ -183,18 +183,6 @@ func runWithLocal( ) error {
 	fmt.Println(runFlags.Masters)
 	fmt.Println(runFlags.Nodes)
 
-	arch := runtime.GOARCH
-	var dockerfilePath string
-
-	switch arch {
-	case "amd64":
-		dockerfilePath = "pkg/infra/container/imagecontext/base/Dockerfile"
-	case "arm64":
-		dockerfilePath = "pkg/infra/container/imagecontext/arm/Dockerfile"
-	default:
-		return fmt.Errorf("unsupported architecture: %s", arch)
-	}
-
 	return nil
 }
 
