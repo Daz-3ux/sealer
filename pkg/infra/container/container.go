@@ -39,7 +39,7 @@ const (
 	RoleLabel           = "sealer-io-role"
 	RoleLabelMaster     = "sealer-io-role-is-master"
 	NetworkName         = "sealer-network"
-	ImageName           = "sealerio/sealer-base-image:v1"
+	ImageName           = "armselaer:latest"
 	SealerImageRootPath = "/var/lib/sealer"
 	// for check rootless docker in info.SecurityOptions
 	RootlessDocker = "name=rootless"
@@ -215,6 +215,7 @@ func (a *ApplyProvider) applyToJoin(toJoinNumber int, role string) ([]net.IP, er
 				RoleLabel: role,
 			},
 		}
+		fmt.Printf("use image name: %s\n", opts.ImageName)
 		if len(a.Cluster.Spec.Masters.IPList) == 0 && i == 0 {
 			opts.ContainerLabel[RoleLabelMaster] = "true"
 		}
