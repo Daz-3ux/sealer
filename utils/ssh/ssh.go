@@ -65,6 +65,7 @@ type SSH struct {
 	Fs           fs.Interface
 }
 
+// 创建 ssh 客户端(填配置)
 func NewSSHClient(ssh *v1.SSH, alsoToStdout bool) Interface {
 	if ssh.User == "" {
 		ssh.User = common.ROOT
@@ -86,14 +87,20 @@ func NewSSHClient(ssh *v1.SSH, alsoToStdout bool) Interface {
 	}
 }
 
+/*
+	新建 SSh 客户端连接
+*/
+// 不显示输出
 // GetHostSSHClient is used to executed bash command and no std out to be printed.
 func GetHostSSHClient(hostIP net.IP, cluster *v2.Cluster) (Interface, error) {
 	for _, host := range cluster.Spec.Hosts {
 		for _, ip := range host.IPS {
 			if hostIP.Equal(ip) {
+				// 将目标主机的 SSH 配置信息和 cluster 中的 SSH 配置信息进行合并
 				if err := mergo.Merge(&host.SSH, &cluster.Spec.SSH); err != nil {
 					return nil, err
 				}
+				// 使用合并的信息创建一个 SSHClient 对象,并将其返回
 				return NewSSHClient(&host.SSH, false), nil
 			}
 		}
@@ -101,6 +108,7 @@ func GetHostSSHClient(hostIP net.IP, cluster *v2.Cluster) (Interface, error) {
 	return nil, fmt.Errorf("failed to get host ssh client: host ip %s not in hosts ip list", hostIP)
 }
 
+// 显示输出
 // NewStdoutSSHClient is used to show std out when execute bash command.
 func NewStdoutSSHClient(hostIP net.IP, cluster *v2.Cluster) (Interface, error) {
 	for _, host := range cluster.Spec.Hosts {

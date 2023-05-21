@@ -36,20 +36,33 @@ import (
 )
 
 type SSHInfraDriver struct {
+	// 映射 SSH 接口类型
 	sshConfigs   map[string]ssh.Interface
+	// 存储集群中所有主机的 IP 地址
 	hosts        []net.IP
+	// 映射每个主机的 Taint(污点)
 	hostTaint    map[string][]k8sv1.Taint
+	// 映射主机角色
 	hostRolesMap map[string][]string
+	// 映射每个角色包含的主机 IP 地址
 	roleHostsMap map[string][]net.IP
+	// 映射每个主机的标签 host---ip---lable
 	hostLabels   map[string]map[string]string
+	// 映射每个主机的环境变量 host---ip---env
 	hostEnvMap   map[string]map[string]string
+	// 映射整个集群的环境变量
 	clusterEnv   map[string]string
+	// 整个集群的配置信息
 	cluster      v2.Cluster
 }
 
+/*
+	K8staints 切片转换
+*/
 func convertTaints(taints []string) ([]k8sv1.Taint, error) {
 	var k8staints []k8sv1.Taint
 	for _, taint := range taints {
+		// 格式化 taint 信息
 		data, err := formatData(taint)
 		if err != nil {
 			return nil, err
@@ -59,10 +72,21 @@ func convertTaints(taints []string) ([]k8sv1.Taint, error) {
 	return k8staints, nil
 }
 
+/*
+	创建 ssh 基础设施驱动
+	1. 初始化 SSHInfraDriver 结构体
+	2. 将所有主机的 IP 添加到 host 字段,并检查 IP 地址族
+	3. 合并每个主机的 SSH 配置到集群配置,并为每个主机的 IP 地址创建 SSH 客户端
+	4. 初始化角色与主机的映射
+	5. 合并每个主机的环境变量和集群的环境变量,结果添加至 hostEnvMap
+	6. 将每个主机的 Taint 添加到 hostTaint
+*/
 // NewInfraDriver will create a new Infra driver, and if extraEnv specified, it will set env not exist in Cluster
 func NewInfraDriver(cluster *v2.Cluster) (InfraDriver, error) {
 	var err error
+	// 初始化各字段
 	ret := &SSHInfraDriver{
+		// K8s 集群的相关信息
 		cluster:      *cluster,
 		sshConfigs:   map[string]ssh.Interface{},
 		roleHostsMap: map[string][]net.IP{},
@@ -73,6 +97,7 @@ func NewInfraDriver(cluster *v2.Cluster) (InfraDriver, error) {
 		hostTaint:  map[string][]k8sv1.Taint{},
 	}
 
+	// 对 host 字段复制
 	// initialize hosts field
 	for _, host := range cluster.Spec.Hosts {
 		ret.hosts = append(ret.hosts, host.IPS...)
@@ -82,11 +107,14 @@ func NewInfraDriver(cluster *v2.Cluster) (InfraDriver, error) {
 		return nil, fmt.Errorf("no hosts specified")
 	}
 
+	// 检查所有主机是否同属 IPv4 或 IPv6
 	if err = checkAllHostsSameFamily(ret.hosts); err != nil {
 		return nil, err
 	}
 
+	// 如果是 IPv6 地址族,则为其添加环境变量
 	if k8snet.IsIPv6String(ret.hosts[0].String()) {
+		// K=V 格式,方便后续转换
 		hostIPFamilyEnv := fmt.Sprintf("%s=%s", common.EnvHostIPFamily, k8snet.IPv6)
 		if !util.StringInSlice(hostIPFamilyEnv, cluster.Spec.Env) {
 			cluster.Spec.Env = append(cluster.Spec.Env, hostIPFamilyEnv)
@@ -95,9 +123,11 @@ func NewInfraDriver(cluster *v2.Cluster) (InfraDriver, error) {
 
 	// initialize sshConfigs field
 	for _, host := range cluster.Spec.Hosts {
+		// 合并 ssh 配置到集群配置
 		if err = mergo.Merge(&host.SSH, &cluster.Spec.SSH); err != nil {
 			return nil, err
 		}
+		// 为对应 IP 创建 ssh 客户端
 		for _, ip := range host.IPS {
 			ret.sshConfigs[ip.String()] = ssh.NewSSHClient(&host.SSH, true)
 		}
@@ -110,6 +140,7 @@ func NewInfraDriver(cluster *v2.Cluster) (InfraDriver, error) {
 			if !ok {
 				ret.roleHostsMap[role] = host.IPS
 			} else {
+				// 一个主机可能有多个网卡从而有多个 IP 地址每个主机的
 				ret.roleHostsMap[role] = append(ips, host.IPS...)
 			}
 		}
@@ -118,8 +149,10 @@ func NewInfraDriver(cluster *v2.Cluster) (InfraDriver, error) {
 		}
 	}
 
+	// 转换 K=V 为 map
 	ret.clusterEnv = strUtil.ConvertStringSliceToMap(cluster.Spec.Env)
 
+	// 合并每个主机的环境变量和集群的环境变量,结果添加至 hostEnvMap
 	// initialize hostEnvMap and host labels field
 	// merge the host ENV and global env, the host env will overwrite cluster.Spec.Env
 	for _, host := range cluster.Spec.Hosts {
@@ -131,6 +164,7 @@ func NewInfraDriver(cluster *v2.Cluster) (InfraDriver, error) {
 
 	for _, host := range cluster.Spec.Hosts {
 		for _, ip := range host.IPS {
+			// 为 ret.hostTraint 的 key 赋值
 			ret.hostTaint[ip.String()], err = convertTaints(host.Taints)
 			if err != nil {
 				return nil, err
@@ -188,14 +222,18 @@ func (d *SSHInfraDriver) GetClusterRegistry() v2.Registry {
 	return d.cluster.Spec.Registry
 }
 
+// 将本地文件拷贝至远程
+// 远程主机 IP, 本地文件地址, 远程文件地址
 func (d *SSHInfraDriver) Copy(host net.IP, localFilePath, remoteFilePath string) error {
 	client := d.sshConfigs[host.String()]
+	// 依赖于 SSH 连接,必须先建立 SSH 连接
 	if client == nil {
 		return fmt.Errorf("ip(%s) is not in cluster", host.String())
 	}
 	return client.Copy(host, localFilePath, remoteFilePath)
 }
 
+// 将远程文件拷贝至本地
 func (d *SSHInfraDriver) CopyR(host net.IP, remoteFilePath, localFilePath string) error {
 	client := d.sshConfigs[host.String()]
 	if client == nil {
@@ -205,6 +243,8 @@ func (d *SSHInfraDriver) CopyR(host net.IP, remoteFilePath, localFilePath string
 	return client.CopyR(host, localFilePath, remoteFilePath)
 }
 
+// 异步在远程主机执行命令
+// 异步:执行命令时不会阻塞当前命令,通常是执行需要时间较长的命令 --- goruntine
 func (d *SSHInfraDriver) CmdAsync(host net.IP, env map[string]string, cmd ...string) error {
 	client := d.sshConfigs[host.String()]
 	if client == nil {
@@ -213,6 +253,8 @@ func (d *SSHInfraDriver) CmdAsync(host net.IP, env map[string]string, cmd ...str
 	return client.CmdAsync(host, env, cmd...)
 }
 
+// 以同步方式在远程主机执行命令
+// 同步:会等待命令执行完毕并返回输出结果
 func (d *SSHInfraDriver) Cmd(host net.IP, env map[string]string, cmd string) ([]byte, error) {
 	client := d.sshConfigs[host.String()]
 	if client == nil {
@@ -337,18 +379,22 @@ func (d *SSHInfraDriver) GetHostsPlatform(hosts []net.IP) (map[v1.Platform][]net
 	return hostsPlatformMap, nil
 }
 
+// 获取存储集群文件系统的路径
 func (d *SSHInfraDriver) GetClusterRootfsPath() string {
 	return filepath.Join(common.DefaultSealerDataDir, d.cluster.Name, "rootfs")
 }
 
+// 获取存储集群数据的路径
 func (d *SSHInfraDriver) GetClusterBasePath() string {
 	return filepath.Join(common.DefaultSealerDataDir, d.cluster.Name)
 }
 
+// 在给定 IP 地址上启动 goroutine,执行特定函数 f
 func (d *SSHInfraDriver) Execute(hosts []net.IP, f func(host net.IP) error) error {
 	eg, _ := errgroup.WithContext(context.Background())
 	for _, ip := range hosts {
 		host := ip
+		// 使用 errgroup,有一个 goroutine 返回错误时,其他 goruntine 都被取消并返回错误
 		eg.Go(func() error {
 			err := f(host)
 			if err != nil {
